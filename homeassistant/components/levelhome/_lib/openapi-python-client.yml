@@ -1,0 +1,48 @@
+# Configuration for openapi-python-client
+# Generates Python client from Level WS Partner Server API OpenAPI spec
+
+# Project and package naming
+project_name_override: "generated"
+package_name_override: "level_api"
+package_version_override: "1.0.0"
+
+# Documentation and type hints
+# Put attribute descriptions in attribute docstrings (better IDE support)
+docstrings_on_attributes: true
+
+# Use Literal types for enums instead of Enum classes (more type-safe, better mypy support)
+literal_enums: true
+
+# Field naming
+# Prefix for fields that aren't valid Python identifiers
+field_prefix: "attr_"
+
+# Model naming
+# Use title property without path prefixes (cleaner class names)
+use_path_prefixes_for_title_model_names: false
+
+# Code generation options
+# Generate endpoint functions for all tags (useful if you want multiple ways to access same endpoint)
+generate_all_tags: false
+
+# HTTP options
+# Timeout for fetching schema via HTTP (if using --url instead of --path)
+http_timeout: 30
+
+# Content type handling
+# Map unrecognized content types to recognized ones
+content_type_overrides: {}
+
+# Class name overrides (customize specific class/module names if needed)
+# Example:
+# class_overrides:
+#   SomeLongClassName:
+#     class_name: ShortName
+#     module_name: short_name
+
+# Post-generation hooks (run after code generation)
+# Format and lint the generated code
+post_hooks:
+  - "ruff format ."
+  - "ruff check --fix ."
+

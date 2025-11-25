@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from aiohttp.client_exceptions import ClientError, ClientResponseError
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client, config_entry_oauth2_flow
 
 from . import auth as auth_mod
-from ._lib.level_ha import WebsocketManager as LevelWebsocketManager
+from level_client import LevelWebsocketManager
 from .const import (
     CONF_OAUTH2_BASE_URL,
     CONF_PARTNER_BASE_URL,
@@ -47,7 +50,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: LevelHomeConfigEntry) ->
     config_auth = auth_mod.AsyncConfigEntryAuth(client_session, oauth_session)
 
     _LOGGER.info("Ensuring token is valid before starting WebSocket")
-    await oauth_session.async_ensure_token_valid()
+    try:
+        await oauth_session.async_ensure_token_valid()
+    except (ClientError, ClientResponseError) as err:
+        _LOGGER.error("Error refreshing token: %s", err)
+        raise ConfigEntryNotReady("Failed to refresh OAuth token") from err
     _LOGGER.info("Token validated, proceeding with setup")
 
     base_url = (hass.data.get(DOMAIN) or {}).get(

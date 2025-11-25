@@ -143,7 +143,7 @@ def mock_levelhome_api() -> None:
 def mock_websocket_manager() -> Generator[AsyncMock]:
     """Mock the Level Lock WebSocket manager."""
     with patch(
-        "homeassistant.components.levelhome._lib.level_ha.WebsocketManager",
+        "level_client.LevelWebsocketManager",
         autospec=True,
     ) as mock_ws:
         ws = mock_ws.return_value

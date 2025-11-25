@@ -80,7 +80,8 @@ dependencies = [
   "voluptuous-openapi==0.1.0",
   "yarl==1.20.1",
   "webrtc-models==0.3.0",
-  "zeroconf==0.147.0"
+  "zeroconf==0.147.0",
+  "level-client",
 ]
 
 [project.urls]
@@ -909,3 +910,11 @@ max-complexity = 25
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 property-decorators = ["propcache.api.cached_property"]
+
+[tool.uv.workspace]
+members = [
+    "homeassistant/components/levelhome/_lib",
+]
+
+[tool.uv.sources]
+level-client = { workspace = true }

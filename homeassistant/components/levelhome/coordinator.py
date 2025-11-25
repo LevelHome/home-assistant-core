@@ -11,7 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from ._lib.level_ha import WebsocketManager as LevelWebsocketManager
+from level_client import LevelWebsocketManager
 
 LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL: timedelta | None = None  # Use push updates; no periodic polling
@@ -26,48 +26,6 @@ class LevelLockDevice:
     name: str
     is_locked: bool | None
     state: str | None = None
-
-
-class _ClientAdapter:
-    """Adapter to parse device data from WebSocket responses."""
-
-    def __init__(self, ws_manager: LevelWebsocketManager) -> None:
-        self._ws_manager = ws_manager
-
-    async def async_list_locks(self) -> list[LevelLockDevice]:
-        LOGGER.info("Fetching device list from WebSocket")
-        devices_data = await self._ws_manager.async_get_devices()
-        LOGGER.info("Retrieved %d devices from WebSocket", len(devices_data))
-        devices: list[LevelLockDevice] = []
-        for item in devices_data:
-            device_uuid = item.get("device_uuid") or item.get("uuid") or item.get("UUID")
-            name = item.get("name") or device_uuid or "Level Lock"
-            LOGGER.info("Processing device: uuid=%s, name=%s", device_uuid, name)
-            is_locked: bool | None = None
-            state: str | None = None
-            device_state = await self._ws_manager.async_get_device_state(str(device_uuid))
-            LOGGER.info("Device state response for %s: %s", device_uuid, device_state)
-            if device_state:
-                bolt_state = device_state.get("bolt_state")
-                if bolt_state:
-                    state = str(bolt_state)
-                    is_locked = str(bolt_state).lower() == "locked"
-                    LOGGER.info("Device %s: bolt_state=%s, is_locked=%s", device_uuid, state, is_locked)
-                else:
-                    LOGGER.warning("Device %s: No bolt_state in response", device_uuid)
-            else:
-                LOGGER.warning("Device %s: No device_state received", device_uuid)
-            devices.append(
-                LevelLockDevice(
-                    lock_id=str(device_uuid),
-                    uuid=str(device_uuid),
-                    name=str(name),
-                    is_locked=is_locked,
-                    state=state,
-                )
-            )
-            LOGGER.info("Created LevelLockDevice: lock_id=%s, is_locked=%s, state=%s", device_uuid, is_locked, state)
-        return devices
 
 
 class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
@@ -85,16 +43,27 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
             config_entry=config_entry,
         )
         self._ws_manager = ws_manager
-        self._client = _ClientAdapter(ws_manager)
 
     async def _async_update_data(self) -> dict[str, LevelLockDevice]:
+        """Fetch devices from WebSocket and convert to HA device objects."""
         try:
-            devices = await self._client.async_list_locks()
+            normalized_devices = await self._ws_manager.async_get_devices_normalized()
         except Exception as err:
             raise UpdateFailed(str(err)) from err
-        result: dict[str, LevelLockDevice] = {d.lock_id: d for d in devices}
-        for device in result.values():
-            self._ws_manager.register_device_uuid(device.lock_id, device.uuid)
+        
+        # Convert library NormalizedDevice to HA LevelLockDevice
+        result: dict[str, LevelLockDevice] = {}
+        for device in normalized_devices:
+            ha_device = LevelLockDevice(
+                lock_id=device.device_uuid,
+                uuid=device.device_uuid,
+                name=device.name,
+                is_locked=device.is_locked,
+                state=device.state,
+            )
+            result[ha_device.lock_id] = ha_device
+            self._ws_manager.register_device_uuid(ha_device.lock_id, ha_device.uuid)
+        
         return result
 
     async def async_stop_push(self) -> None:
