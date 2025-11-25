@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from aiohttp.client_exceptions import ClientError, ClientResponseError
+from level_client import LevelWebsocketManager
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -11,7 +12,6 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client, config_entry_oauth2_flow
 
 from . import auth as auth_mod
-from level_client import LevelWebsocketManager
 from .const import (
     CONF_OAUTH2_BASE_URL,
     CONF_PARTNER_BASE_URL,
@@ -29,6 +29,7 @@ type LevelHomeConfigEntry = ConfigEntry[LevelLocksCoordinator]
 async def async_setup_entry(hass: HomeAssistant, entry: LevelHomeConfigEntry) -> bool:
     """Set up Level Lock from a config entry."""
     import logging
+
     _LOGGER = logging.getLogger(__name__)
 
     _LOGGER.info("Setting up Level Lock config entry")

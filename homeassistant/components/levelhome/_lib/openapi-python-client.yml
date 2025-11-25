@@ -45,4 +45,3 @@ content_type_overrides: {}
 post_hooks:
   - "ruff format ."
   - "ruff check --fix ."
-

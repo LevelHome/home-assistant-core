@@ -42,15 +42,10 @@ class NormalizedDevice:
 
 def extract_device_uuid(device_data: dict[str, Any]) -> str | None:
     """Extract device UUID from raw device data dict.
-    
+
     Handles various key names used by the API.
     """
-    return (
-        device_data.get("device_uuid")
-        or device_data.get("uuid")
-        or device_data.get("UUID")
-        or device_data.get("id")
-    )
+    return device_data.get("device_uuid") or device_data.get("uuid") or device_data.get("UUID") or device_data.get("id")
 
 
 def extract_device_name(device_data: dict[str, Any], fallback: str | None = None) -> str:
@@ -65,17 +60,17 @@ def extract_device_name(device_data: dict[str, Any], fallback: str | None = None
 
 def parse_bolt_state(device_state: dict[str, Any] | None) -> tuple[bool | None, str | None]:
     """Parse device state dict to (is_locked, state_string).
-    
+
     Returns:
         Tuple of (is_locked boolean or None, state string or None)
     """
     if device_state is None:
         return None, None
-    
+
     bolt_state = device_state.get("bolt_state")
     if bolt_state is None:
         return None, None
-    
+
     state_str = str(bolt_state)
     is_locked = coerce_is_locked(state_str)
     return is_locked, state_str
@@ -86,18 +81,18 @@ def normalize_device(
     device_state: dict[str, Any] | None = None,
 ) -> NormalizedDevice:
     """Normalize raw device data into a structured NormalizedDevice.
-    
+
     Args:
         device_data: Raw device dict from list_devices response
         device_state: Optional device state dict from get_device_state response
-        
+
     Returns:
         NormalizedDevice with extracted/normalized fields
     """
     device_uuid = extract_device_uuid(device_data) or "unknown"
     name = extract_device_name(device_data, fallback=device_uuid)
     is_locked, state = parse_bolt_state(device_state)
-    
+
     return NormalizedDevice(
         device_uuid=device_uuid,
         name=name,

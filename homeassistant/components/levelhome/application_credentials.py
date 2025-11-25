@@ -25,9 +25,11 @@ from .const import (
 )
 
 
-class LevelOAuth2Implementation(config_entry_oauth2_flow.LocalOAuth2ImplementationWithPkce):
+class LevelOAuth2Implementation(
+    config_entry_oauth2_flow.LocalOAuth2ImplementationWithPkce
+):
     """Level Lock OAuth2 implementation with PKCE support for token refresh.
-    
+
     Level uses the device code flow where token refresh happens via the
     OAuth2 server's /v1/token/exchange endpoint with grant_type=refresh_token.
     """
@@ -43,7 +45,9 @@ class LevelOAuth2Implementation(config_entry_oauth2_flow.LocalOAuth2Implementati
         partner_token_url: str,
     ) -> None:
         """Initialize with both OAuth2 and partner server token URLs."""
-        super().__init__(hass, domain, client_id, authorize_url, token_url, client_secret)
+        super().__init__(
+            hass, domain, client_id, authorize_url, token_url, client_secret
+        )
         self._partner_token_url = partner_token_url
         # Clear client_secret for PKCE flows
         self.client_secret = ""

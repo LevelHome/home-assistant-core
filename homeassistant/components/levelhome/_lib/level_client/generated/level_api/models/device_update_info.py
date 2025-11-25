@@ -36,7 +36,6 @@ class DeviceUpdateInfo:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-
         device_uuid = self.device_uuid
 
         device_name = self.device_name

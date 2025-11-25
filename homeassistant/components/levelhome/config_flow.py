@@ -80,7 +80,9 @@ class OAuth2FlowHandler(
                 step_id="user",
                 data_schema=vol.Schema(
                     {
-                        vol.Optional(CONF_PARTNER_BASE_URL, default=default_partner): str,
+                        vol.Optional(
+                            CONF_PARTNER_BASE_URL, default=default_partner
+                        ): str,
                     }
                 ),
             )
@@ -89,7 +91,9 @@ class OAuth2FlowHandler(
             CONF_PARTNER_BASE_URL, default_partner
         ).rstrip("/")
 
-        self.hass.data.setdefault(DOMAIN, {})[CONF_PARTNER_BASE_URL] = self._partner_base_url
+        self.hass.data.setdefault(DOMAIN, {})[CONF_PARTNER_BASE_URL] = (
+            self._partner_base_url
+        )
 
         return await self.async_step_initiate()
 
@@ -156,7 +160,7 @@ class OAuth2FlowHandler(
             if not self._user_code:
                 self.logger.error("User code not available for display")
                 return self.async_abort(reason="oauth_error")
-            
+
             return self.async_show_form(
                 step_id="verify",
                 data_schema=vol.Schema({}),
@@ -255,8 +259,14 @@ class OAuth2FlowHandler(
         import hashlib
         import secrets
 
-        code_verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("utf-8").rstrip("=")
+        code_verifier = (
+            base64.urlsafe_b64encode(secrets.token_bytes(32))
+            .decode("utf-8")
+            .rstrip("=")
+        )
         code_challenge_bytes = hashlib.sha256(code_verifier.encode("utf-8")).digest()
-        code_challenge = base64.urlsafe_b64encode(code_challenge_bytes).decode("utf-8").rstrip("=")
+        code_challenge = (
+            base64.urlsafe_b64encode(code_challenge_bytes).decode("utf-8").rstrip("=")
+        )
 
         return code_verifier, code_challenge

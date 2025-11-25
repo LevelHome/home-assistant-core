@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from level_client.protocol import (
     coerce_is_locked,
     extract_device_name,
@@ -11,7 +9,6 @@ from level_client.protocol import (
     normalize_device,
     parse_bolt_state,
 )
-
 
 # --- coerce_is_locked tests ---
 
@@ -166,9 +163,9 @@ def test_normalize_device_full_data() -> None:
     """Test normalizing device with full data."""
     device_data = {"device_uuid": "123", "name": "Front Door"}
     device_state = {"bolt_state": "Locked"}
-    
+
     device = normalize_device(device_data, device_state)
-    
+
     assert device.device_uuid == "123"
     assert device.name == "Front Door"
     assert device.is_locked is True
@@ -178,9 +175,9 @@ def test_normalize_device_full_data() -> None:
 def test_normalize_device_minimal_data() -> None:
     """Test normalizing device with minimal data."""
     device_data = {"device_uuid": "456"}
-    
+
     device = normalize_device(device_data)
-    
+
     assert device.device_uuid == "456"
     assert device.name == "456"  # Falls back to UUID
     assert device.is_locked is None
@@ -190,9 +187,9 @@ def test_normalize_device_minimal_data() -> None:
 def test_normalize_device_no_uuid() -> None:
     """Test normalizing device with no UUID uses 'unknown'."""
     device_data = {"name": "Test Lock"}
-    
+
     device = normalize_device(device_data)
-    
+
     assert device.device_uuid == "unknown"
     assert device.name == "Test Lock"
 
@@ -201,9 +198,9 @@ def test_normalize_device_unlocked_state() -> None:
     """Test normalizing device with unlocked state."""
     device_data = {"device_uuid": "789", "name": "Back Door"}
     device_state = {"bolt_state": "Unlocked"}
-    
+
     device = normalize_device(device_data, device_state)
-    
+
     assert device.device_uuid == "789"
     assert device.name == "Back Door"
     assert device.is_locked is False

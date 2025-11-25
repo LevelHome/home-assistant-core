@@ -106,6 +106,7 @@ def mock_device_code_endpoints(aioclient_mock: AiohttpClientMocker) -> None:
         DEVICE_CODE_POLL_PATH,
         DEVICE_CODE_VERIFY_PATH,
     )
+
     aioclient_mock.post(
         f"{DEFAULT_PARTNER_BASE_URL}{DEVICE_CODE_INITIATE_PATH}",
         json={

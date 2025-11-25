@@ -7,18 +7,18 @@ to the ws-partner-server for all devices on an account.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
-from contextlib import suppress
 import json
 import logging
 import random
+from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from typing import Any, Literal
 
 from aiohttp import ClientError, ClientSession, ClientWebSocketResponse, WSMsgType
 
 from level_client.generated.level_api.models import (
-    DeviceStateChangedMessage,
     DevicesRemovedMessage,
+    DeviceStateChangedMessage,
     DevicesUpdatedMessage,
     GetDeviceStateMessage,
     GetDeviceStateReplyMessage,
@@ -30,7 +30,7 @@ from level_client.generated.level_api.models import (
     UnlockMessage,
     UnlockReplyMessage,
 )
-from level_client.generated.level_api.types import UNSET, Unset
+from level_client.generated.level_api.types import Unset
 from level_client.protocol import (
     NormalizedDevice,
     extract_device_uuid,
@@ -52,9 +52,7 @@ class LevelWebsocketManager:
         session: ClientSession,
         base_url: str,
         get_token: TokenProvider,
-        on_state_update: Callable[
-            [str, bool | None, dict[str, Any] | None], Awaitable[None]
-        ],
+        on_state_update: Callable[[str, bool | None, dict[str, Any] | None], Awaitable[None]],
     ) -> None:
         self._get_token = get_token
         self._base_url = base_url.rstrip("/")
@@ -78,7 +76,10 @@ class LevelWebsocketManager:
             self._task = asyncio.create_task(self._run_connection())
             LOGGER.info("WebSocket connection task created, waiting 0.5s for connection")
             await asyncio.sleep(0.5)
-            LOGGER.info("Initial wait complete, WebSocket connected: %s", self._ws is not None and not (self._ws.closed if self._ws else True))
+            LOGGER.info(
+                "Initial wait complete, WebSocket connected: %s",
+                self._ws is not None and not (self._ws.closed if self._ws else True),
+            )
         await self._fetch_device_list()
 
     async def async_get_devices(self) -> list[dict[str, Any]]:
@@ -95,33 +96,36 @@ class LevelWebsocketManager:
 
     async def async_get_devices_normalized(self) -> list[NormalizedDevice]:
         """Get list of devices with normalized data and current state.
-        
+
         This is a convenience method that fetches device list and state,
         then returns normalized device objects ready for use.
-        
+
         Returns:
             List of NormalizedDevice objects with device_uuid, name, is_locked, state
         """
         devices_data = await self.async_get_devices()
         normalized: list[NormalizedDevice] = []
-        
+
         for device_data in devices_data:
             device_uuid = extract_device_uuid(device_data)
             if not device_uuid:
                 LOGGER.warning("Skipping device with no UUID: %s", device_data)
                 continue
-            
+
             # Fetch current state for the device
             device_state = await self.async_get_device_state(device_uuid)
-            
+
             # Normalize the device data
             device = normalize_device(device_data, device_state)
             normalized.append(device)
             LOGGER.debug(
                 "Normalized device: uuid=%s, name=%s, is_locked=%s, state=%s",
-                device.device_uuid, device.name, device.is_locked, device.state
+                device.device_uuid,
+                device.name,
+                device.is_locked,
+                device.state,
             )
-        
+
         LOGGER.info("Normalized %d devices", len(normalized))
         return normalized
 
@@ -143,7 +147,7 @@ class LevelWebsocketManager:
 
     async def _safe_send_json(self, message_dict: dict[str, Any], timeout: float = 5.0) -> None:
         """Send a JSON message with timeout protection.
-        
+
         Raises:
             ConnectionError: If WebSocket is not connected or closed
             asyncio.TimeoutError: If send operation times out (connection likely stale)
@@ -151,7 +155,7 @@ class LevelWebsocketManager:
         async with self._send_lock:
             if self._ws is None or self._ws.closed:
                 raise ConnectionError("WebSocket not connected")
-            
+
             try:
                 await asyncio.wait_for(self._ws.send_json(message_dict), timeout=timeout)
             except asyncio.TimeoutError:
@@ -183,9 +187,7 @@ class LevelWebsocketManager:
         self._pending_state_requests[device_uuid] = (event, None)
         try:
             LOGGER.info("Sending get_device_state request for %s", device_uuid)
-            message = GetDeviceStateMessage(
-                type_="get_device_state", device_uuid=device_uuid
-            )
+            message = GetDeviceStateMessage(type_="get_device_state", device_uuid=device_uuid)
             await self._safe_send_json(message.to_dict())
             LOGGER.info("Waiting for device state response for %s", device_uuid)
             await asyncio.wait_for(event.wait(), timeout=5.0)
@@ -262,7 +264,7 @@ class LevelWebsocketManager:
             return
         msg_type: str | None = payload.get("type")
         LOGGER.info("Received WebSocket message type: %s", msg_type)
-        
+
         if msg_type == "list_devices_reply":
             try:
                 msg = ListDevicesReplyMessage.from_dict(payload)
@@ -278,7 +280,7 @@ class LevelWebsocketManager:
             except Exception as e:
                 LOGGER.warning("Failed to parse list_devices_reply: %s", e)
             return
-        
+
         if msg_type == "lock_reply":
             try:
                 msg = LockReplyMessage.from_dict(payload)
@@ -289,9 +291,7 @@ class LevelWebsocketManager:
                     msg.error if not isinstance(msg.error, Unset) else None,
                 )
                 if not msg.success and not isinstance(msg.error, Unset) and msg.error:
-                    LOGGER.warning(
-                        "Lock command failed for device %s: %s", msg.device_uuid, msg.error
-                    )
+                    LOGGER.warning("Lock command failed for device %s: %s", msg.device_uuid, msg.error)
                     return
                 if msg.success and msg.device_uuid:
                     state_payload = {"state": "locked", "device_uuid": msg.device_uuid}
@@ -300,7 +300,7 @@ class LevelWebsocketManager:
             except Exception as e:
                 LOGGER.warning("Failed to parse lock_reply: %s", e)
             return
-        
+
         if msg_type == "unlock_reply":
             try:
                 msg = UnlockReplyMessage.from_dict(payload)
@@ -311,9 +311,7 @@ class LevelWebsocketManager:
                     msg.error if not isinstance(msg.error, Unset) else None,
                 )
                 if not msg.success and not isinstance(msg.error, Unset) and msg.error:
-                    LOGGER.warning(
-                        "Unlock command failed for device %s: %s", msg.device_uuid, msg.error
-                    )
+                    LOGGER.warning("Unlock command failed for device %s: %s", msg.device_uuid, msg.error)
                     return
                 if msg.success and msg.device_uuid:
                     state_payload = {"state": "unlocked", "device_uuid": msg.device_uuid}
@@ -322,14 +320,14 @@ class LevelWebsocketManager:
             except Exception as e:
                 LOGGER.warning("Failed to parse unlock_reply: %s", e)
             return
-        
+
         if msg_type == "pong":
             try:
                 PongMessage.from_dict(payload)  # Validate but don't need to do anything
             except Exception as e:
                 LOGGER.warning("Failed to parse pong: %s", e)
             return
-        
+
         if msg_type == "get_device_state_reply":
             try:
                 msg = GetDeviceStateReplyMessage.from_dict(payload)
@@ -337,11 +335,7 @@ class LevelWebsocketManager:
                 if msg.device_uuid and msg.device_uuid in self._pending_state_requests:
                     event, _ = self._pending_state_requests[msg.device_uuid]
                     # Convert DeviceStateInfo to dict for backward compatibility
-                    device_state_dict = (
-                        msg.device_state.to_dict()
-                        if not isinstance(msg.device_state, Unset)
-                        else None
-                    )
+                    device_state_dict = msg.device_state.to_dict() if not isinstance(msg.device_state, Unset) else None
                     self._pending_state_requests[msg.device_uuid] = (event, device_state_dict)
                     event.set()
                     LOGGER.info("Device state event set for %s", msg.device_uuid)
@@ -350,7 +344,7 @@ class LevelWebsocketManager:
             except Exception as e:
                 LOGGER.warning("Failed to parse get_device_state_reply: %s", e)
             return
-        
+
         if msg_type == "device_state_changed":
             try:
                 msg = DeviceStateChangedMessage.from_dict(payload)
@@ -361,11 +355,7 @@ class LevelWebsocketManager:
                 )
                 if msg.device_uuid and not isinstance(msg.device_state, Unset):
                     device_state = msg.device_state
-                    bolt_state = (
-                        device_state.bolt_state
-                        if not isinstance(device_state.bolt_state, Unset)
-                        else None
-                    )
+                    bolt_state = device_state.bolt_state if not isinstance(device_state.bolt_state, Unset) else None
                     is_locked = None
                     state_str = None
                     if bolt_state == "Locked":
@@ -380,14 +370,10 @@ class LevelWebsocketManager:
                         "device_name": msg.device_name,
                         "bolt_state": bolt_state,
                         "battery_level": (
-                            device_state.battery_level
-                            if not isinstance(device_state.battery_level, Unset)
-                            else None
+                            device_state.battery_level if not isinstance(device_state.battery_level, Unset) else None
                         ),
                         "reachable": (
-                            device_state.reachable
-                            if not isinstance(device_state.reachable, Unset)
-                            else None
+                            device_state.reachable if not isinstance(device_state.reachable, Unset) else None
                         ),
                     }
                     LOGGER.info(
@@ -401,7 +387,7 @@ class LevelWebsocketManager:
             except Exception as e:
                 LOGGER.warning("Failed to parse device_state_changed: %s", e)
             return
-        
+
         if msg_type == "devices_updated":
             try:
                 msg = DevicesUpdatedMessage.from_dict(payload)
@@ -420,7 +406,7 @@ class LevelWebsocketManager:
             except Exception as e:
                 LOGGER.warning("Failed to parse devices_updated: %s", e)
             return
-        
+
         if msg_type == "devices_removed":
             try:
                 msg = DevicesRemovedMessage.from_dict(payload)
@@ -428,9 +414,7 @@ class LevelWebsocketManager:
                 # Remove devices from device list
                 removed_uuids = set(msg.device_uuids)
                 self._devices_list = [
-                    device
-                    for device in self._devices_list
-                    if device.get("device_uuid") not in removed_uuids
+                    device for device in self._devices_list if device.get("device_uuid") not in removed_uuids
                 ]
                 # Remove from device UUID map
                 for device_uuid in removed_uuids:
@@ -443,5 +427,5 @@ class LevelWebsocketManager:
             except Exception as e:
                 LOGGER.warning("Failed to parse devices_removed: %s", e)
             return
-        
+
         LOGGER.info("Unhandled message type: %s, payload: %s", msg_type, payload)

@@ -14,7 +14,6 @@ from homeassistant.components.levelhome.const import (
     CONF_PARTNER_BASE_URL,
     DEFAULT_PARTNER_BASE_URL,
     DEVICE_CODE_INITIATE_PATH,
-    DEVICE_CODE_POLL_PATH,
     DOMAIN,
 )
 from homeassistant.core import HomeAssistant
@@ -257,7 +256,7 @@ async def test_reauth_paths(hass: HomeAssistant) -> None:
         redirect_uri="ruri",
         extra_token_resolve_data={},
     )
-    
+
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
@@ -282,7 +281,10 @@ async def test_reauth_paths(hass: HomeAssistant) -> None:
     ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
-            context={"source": config_entries.SOURCE_REAUTH, "entry_id": entry.entry_id},
+            context={
+                "source": config_entries.SOURCE_REAUTH,
+                "entry_id": entry.entry_id,
+            },
         )
         assert result["type"] == FlowResultType.FORM
         assert result["step_id"] == "reauth_confirm"
@@ -297,5 +299,3 @@ def test_extra_authorize_data_property() -> None:
     """Directly verify extra_authorize_data returns expected scope."""
     handler = object.__new__(OAuth2FlowHandler)
     assert handler.extra_authorize_data == {"scope": "all"}
-
-

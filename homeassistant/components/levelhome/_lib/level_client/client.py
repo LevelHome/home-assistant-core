@@ -25,24 +25,18 @@ class Client:
     aiohttp ClientSession and an async token provider callable.
     """
 
-    def __init__(
-        self, session: ClientSession, base_url: str, get_token: TokenProvider
-    ) -> None:
+    def __init__(self, session: ClientSession, base_url: str, get_token: TokenProvider) -> None:
         """Initialize the Level API client."""
         self._session = session
         self._base_url = base_url.rstrip("/")
         self._get_token = get_token
 
-    async def _request(
-        self, method: str, path: str, *, json: dict[str, Any] | None = None
-    ) -> Any:
+    async def _request(self, method: str, path: str, *, json: dict[str, Any] | None = None) -> Any:
         token = await self._get_token()
         url = f"{self._base_url}{path}"
         headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
         try:
-            async with self._session.request(
-                method, url, headers=headers, json=json
-            ) as resp:
+            async with self._session.request(method, url, headers=headers, json=json) as resp:
                 if resp.status >= HTTPStatus.BAD_REQUEST:
                     text = await resp.text()
                     raise ApiError(f"HTTP {resp.status} for {method} {path}: {text}")
