@@ -51,6 +51,7 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
         self._lock_id = lock_id
         self._attr_unique_id = f"{DOMAIN}_{lock_id}"
         self._attr_name = None
+        self._previous_state: str | None = None
 
     @property
     def _device(self) -> LevelLockDevice:
@@ -170,6 +171,32 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
             )
             raise
 
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        super()._handle_coordinator_update()
+        current_state = self._device.state
+        if current_state and self._previous_state:
+            previous_lower = self._previous_state.lower()
+            current_lower = current_state.lower()
+            device_name = self._device.name
+            if previous_lower == "locking" and current_lower == "locked":
+                logbook.async_log_entry(
+                    self.hass,
+                    name=device_name,
+                    message="Lock command completed successfully",
+                    domain=DOMAIN,
+                    entity_id=self.entity_id,
+                )
+            elif previous_lower == "unlocking" and current_lower == "unlocked":
+                logbook.async_log_entry(
+                    self.hass,
+                    name=device_name,
+                    message="Unlock command completed successfully",
+                    domain=DOMAIN,
+                    entity_id=self.entity_id,
+                )
+        self._previous_state = current_state
+
     def _set_optimistic_state(self, state: str) -> None:
         """Optimistically update the lock state before receiving confirmation.
 
@@ -183,3 +210,4 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
             updated_device = replace(device, state=state, is_locked=None)
             current_data[self._lock_id] = updated_device
             self.coordinator.async_set_updated_data(current_data)
+            self._previous_state = state
