@@ -146,6 +146,7 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
                 LOGGER.info("Added new device %s: is_locked=%s, state=%s", device.lock_id, device.is_locked, device.state)
                 return
 
+        old_state = device.state
         updates = {}
         if is_locked is not None:
             updates["is_locked"] = is_locked
@@ -158,27 +159,17 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
             LOGGER.info("Updated device %s: is_locked=%s, state=%s", updated_device.lock_id, updated_device.is_locked, updated_device.state)
             self.async_set_updated_data(current)
             if "state" in updates:
-                old_state = device.state
                 new_state = updates["state"]
-                if old_state and new_state and old_state.lower() != new_state.lower():
-                    new_state_lower = new_state.lower()
+                if new_state and (not old_state or old_state.lower() != new_state.lower()):
                     entity_id = f"lock.{DOMAIN}_{device.lock_id}"
-                    if new_state_lower == "locked":
-                        logbook.async_log_entry(
-                            self.hass,
-                            name=device.name,
-                            message="Device locked",
-                            domain=DOMAIN,
-                            entity_id=entity_id,
-                        )
-                    elif new_state_lower == "unlocked":
-                        logbook.async_log_entry(
-                            self.hass,
-                            name=device.name,
-                            message="Device unlocked",
-                            domain=DOMAIN,
-                            entity_id=entity_id,
-                        )
+                    state_message = f"State changed to {new_state}"
+                    logbook.async_log_entry(
+                        self.hass,
+                        name=device.name,
+                        message=state_message,
+                        domain=DOMAIN,
+                        entity_id=entity_id,
+                    )
 
     async def async_send_command(self, lock_id: str, command: str) -> None:
         """Send a command via WebSocket."""
