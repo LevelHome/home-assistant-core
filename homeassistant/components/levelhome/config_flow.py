@@ -95,7 +95,6 @@ class OAuth2FlowHandler(
                 data_schema=vol.Schema(
                     {
                         vol.Required(CONF_CONTACT_INFO): str,
-                        vol.Optional(CONF_PARTNER_BASE_URL, default=default_partner): str,
                     }
                 ),
             )
