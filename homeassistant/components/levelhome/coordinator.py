@@ -111,11 +111,6 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
         """Handle a push state update from the WebSocket."""
         is_command_reply = payload is not None and "bolt_state" not in payload and "device_name" not in payload
         is_device_state_change = payload is not None and "bolt_state" in payload
-        if is_device_state_change and self._command_in_progress.get(lock_id, False):
-            state = payload.get("state")
-            if state in ("locked", "unlocked"):
-                self._command_in_progress[lock_id] = False
-                LOGGER.debug("Device reached final state %s for %s, clearing command lock", state, lock_id)
         last_cmd_time = self._last_command_time.get(lock_id, 0)
         time_since_command = time.monotonic() - last_cmd_time
         if not is_command_reply and time_since_command < COMMAND_IGNORE_WINDOW:
@@ -128,12 +123,14 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
             return
         current = dict(self.data or {})
         device = current.get(lock_id)
+        matched_by_name = False
         if device is None:
             device_name = payload.get("device_name") if payload else None
             if device_name:
                 for d in current.values():
                     if d.name == device_name:
                         device = d
+                        matched_by_name = True
                         LOGGER.info("Matched device by name: %s -> %s", lock_id, device.lock_id)
                         break
             if device is None:
@@ -162,6 +159,11 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
             current[device.lock_id] = updated_device
             LOGGER.info("Updated device %s: is_locked=%s, state=%s", updated_device.lock_id, updated_device.is_locked, updated_device.state)
             self.async_set_updated_data(current)
+        if is_device_state_change and (matched_by_name or lock_id == device.lock_id):
+            state = payload.get("state") if payload else None
+            if state in ("locked", "unlocked") and self._command_in_progress.get(device.lock_id, False):
+                self._command_in_progress[device.lock_id] = False
+                LOGGER.debug("Device %s reached final state %s, clearing command lock", device.lock_id, state)
 
     def is_command_in_progress(self, lock_id: str) -> bool:
         """Check if a command is currently in progress for a lock."""
