@@ -8,13 +8,11 @@ import logging
 import time
 from typing import Any
 
-from homeassistant.components import logbook
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from ._lib.level_ha import WebsocketManager as LevelWebsocketManager
-from .const import DOMAIN
 
 LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL: timedelta | None = None  # Use push updates; no periodic polling
@@ -146,7 +144,6 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
                 LOGGER.info("Added new device %s: is_locked=%s, state=%s", device.lock_id, device.is_locked, device.state)
                 return
 
-        old_state = device.state
         updates = {}
         if is_locked is not None:
             updates["is_locked"] = is_locked
@@ -158,18 +155,6 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
             current[device.lock_id] = updated_device
             LOGGER.info("Updated device %s: is_locked=%s, state=%s", updated_device.lock_id, updated_device.is_locked, updated_device.state)
             self.async_set_updated_data(current)
-            if "state" in updates:
-                new_state = updates["state"]
-                #if new_state and (not old_state or old_state.lower() != new_state.lower()):
-                entity_id = f"lock.{DOMAIN}_{device.lock_id}"
-                state_message = f"State changed to {new_state}"
-                logbook.async_log_entry(
-                    self.hass,
-                    name=device.name,
-                    message=state_message,
-                    domain=DOMAIN,
-                    entity_id=entity_id,
-                )
 
     async def async_send_command(self, lock_id: str, command: str) -> None:
         """Send a command via WebSocket."""
