@@ -48,7 +48,6 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
         """Initialize the Level Lock entity."""
         super().__init__(coordinator)
         self._lock_id = lock_id
-        device = self._device
         self._attr_unique_id = f"{DOMAIN}_{lock_id}"
         self._attr_name = None
 
