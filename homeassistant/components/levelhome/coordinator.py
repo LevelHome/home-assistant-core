@@ -110,9 +110,12 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
     ) -> None:
         """Handle a push state update from the WebSocket."""
         is_command_reply = payload is not None and "bolt_state" not in payload and "device_name" not in payload
-        if is_command_reply:
-            self._command_in_progress[lock_id] = False
-            LOGGER.debug("Command reply received for %s, clearing command lock", lock_id)
+        is_device_state_change = payload is not None and "bolt_state" in payload
+        if is_device_state_change and self._command_in_progress.get(lock_id, False):
+            state = payload.get("state")
+            if state in ("locked", "unlocked"):
+                self._command_in_progress[lock_id] = False
+                LOGGER.debug("Device reached final state %s for %s, clearing command lock", state, lock_id)
         last_cmd_time = self._last_command_time.get(lock_id, 0)
         time_since_command = time.monotonic() - last_cmd_time
         if not is_command_reply and time_since_command < COMMAND_IGNORE_WINDOW:
