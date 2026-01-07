@@ -112,13 +112,6 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
         try:
             # Send command - actual state will come back via WebSocket push
             await self.coordinator.async_send_command(self._lock_id, "lock")
-            logbook.async_log_entry(
-                self.hass,
-                name=device_name,
-                message="Lock command completed successfully",
-                domain=DOMAIN,
-                entity_id=self.entity_id,
-            )
         except Exception as err:
             # Revert optimistic state on failure
             await self.coordinator.async_request_refresh()
@@ -155,13 +148,6 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
         try:
             # Send command - actual state will come back via WebSocket push
             await self.coordinator.async_send_command(self._lock_id, "unlock")
-            logbook.async_log_entry(
-                self.hass,
-                name=device_name,
-                message="Unlock command completed successfully",
-                domain=DOMAIN,
-                entity_id=self.entity_id,
-            )
         except Exception as err:
             # Revert optimistic state on failure
             await self.coordinator.async_request_refresh()

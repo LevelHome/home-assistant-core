@@ -8,11 +8,13 @@ import logging
 import time
 from typing import Any
 
+from homeassistant.components import logbook
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from ._lib.level_ha import WebsocketManager as LevelWebsocketManager
+from .const import DOMAIN
 
 LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL: timedelta | None = None  # Use push updates; no periodic polling
@@ -155,6 +157,28 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
             current[device.lock_id] = updated_device
             LOGGER.info("Updated device %s: is_locked=%s, state=%s", updated_device.lock_id, updated_device.is_locked, updated_device.state)
             self.async_set_updated_data(current)
+            if "state" in updates:
+                old_state = device.state
+                new_state = updates["state"]
+                if old_state and new_state and old_state.lower() != new_state.lower():
+                    new_state_lower = new_state.lower()
+                    entity_id = f"lock.{DOMAIN}_{device.lock_id}"
+                    if new_state_lower == "locked":
+                        logbook.async_log_entry(
+                            self.hass,
+                            name=device.name,
+                            message="Device locked",
+                            domain=DOMAIN,
+                            entity_id=entity_id,
+                        )
+                    elif new_state_lower == "unlocked":
+                        logbook.async_log_entry(
+                            self.hass,
+                            name=device.name,
+                            message="Device unlocked",
+                            domain=DOMAIN,
+                            entity_id=entity_id,
+                        )
 
     async def async_send_command(self, lock_id: str, command: str) -> None:
         """Send a command via WebSocket."""
