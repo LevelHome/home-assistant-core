@@ -187,7 +187,7 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
         if self._lock_id in self.coordinator.data:
             current_data = dict(self.coordinator.data)
             device = current_data[self._lock_id]
-            updated_device = replace(device, state=state, is_locked=None)
+            updated_device = replace(device, state=state)
             current_data[self._lock_id] = updated_device
             self.coordinator.async_set_updated_data(current_data)
             self._previous_state = state
