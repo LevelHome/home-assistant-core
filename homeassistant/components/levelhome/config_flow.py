@@ -86,9 +86,6 @@ class OAuth2FlowHandler(
                 return self.async_abort(reason="missing_credentials")
             return self.async_abort(reason="missing_configuration")
 
-        existing = self.hass.data.get(DOMAIN) or {}
-        default_partner = existing.get(CONF_PARTNER_BASE_URL, DEFAULT_PARTNER_BASE_URL)
-
         if user_input is None:
             return self.async_show_form(
                 step_id="user",
