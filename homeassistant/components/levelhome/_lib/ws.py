@@ -48,6 +48,7 @@ class LevelWebsocketManager:
         self._devices_list: list[dict[str, Any]] = []
         self._list_devices_event = asyncio.Event()
         self._pending_state_requests: dict[str, tuple[asyncio.Event, dict[str, Any] | None]] = {}
+        self._pending_commands: dict[str, tuple[asyncio.Event, bool, str | None]] = {}
 
     async def async_start(self, lock_ids: list[str] | None = None) -> None:
         """Start WebSocket connection."""
@@ -98,22 +99,35 @@ class LevelWebsocketManager:
     async def async_send_command(self, lock_id: str, command: WsCommandType) -> None:
         """Send a lock/unlock command via WebSocket."""
         LOGGER.info("Sending %s command for lock %s", command, lock_id)
-        async with self._send_lock:
-            if self._ws is None or self._ws.closed:
-                LOGGER.info("WebSocket not connected, waiting for connection...")
-                for _ in range(10):
-                    await asyncio.sleep(0.2)
-                    if self._ws is not None and not self._ws.closed:
-                        break
-                else:
-                    LOGGER.error("WebSocket not connected after waiting")
-                    raise ConnectionError("WebSocket not connected")
-            device_uuid = self._device_uuid_map.get(lock_id)
-            if device_uuid is None:
-                raise ValueError(f"Device UUID not found for lock_id {lock_id}")
-            message = {"type": command, "device_uuid": device_uuid}
-            LOGGER.info("Sending WebSocket message: %s", message)
-            await self._ws.send_json(message)
+        device_uuid = self._device_uuid_map.get(lock_id)
+        if device_uuid is None:
+            raise ValueError(f"Device UUID not found for lock_id {lock_id}")
+        event = asyncio.Event()
+        command_key = f"{device_uuid}_{command}"
+        self._pending_commands[command_key] = (event, False, None)
+        try:
+            async with self._send_lock:
+                if self._ws is None or self._ws.closed:
+                    LOGGER.info("WebSocket not connected, waiting for connection...")
+                    for _ in range(10):
+                        await asyncio.sleep(0.2)
+                        if self._ws is not None and not self._ws.closed:
+                            break
+                    else:
+                        LOGGER.error("WebSocket not connected after waiting")
+                        raise ConnectionError("WebSocket not connected")
+                message = {"type": command, "device_uuid": device_uuid}
+                LOGGER.info("Sending WebSocket message: %s", message)
+                await self._ws.send_json(message)
+            await asyncio.wait_for(event.wait(), timeout=10.0)
+            _, success, error = self._pending_commands.get(command_key, (None, False, None))
+            if not success:
+                raise RuntimeError(error or "Command failed")
+        except TimeoutError as err:
+            LOGGER.warning("Timeout waiting for %s command response for %s", command, device_uuid)
+            raise TimeoutError(f"Command timeout for {command}") from err
+        finally:
+            self._pending_commands.pop(command_key, None)
 
     async def async_get_device_state(self, device_uuid: str) -> dict[str, Any] | None:
         """Get device state via WebSocket."""
@@ -225,6 +239,12 @@ class LevelWebsocketManager:
             device_uuid = payload.get("device_uuid")
             error = payload.get("error")
             LOGGER.info("Received %s: success=%s, device=%s, error=%s", msg_type, success, device_uuid, error)
+            command = "lock" if msg_type == "lock_reply" else "unlock"
+            command_key = f"{device_uuid}_{command}"
+            if command_key in self._pending_commands:
+                event, _, _ = self._pending_commands[command_key]
+                self._pending_commands[command_key] = (event, bool(success), error)
+                event.set()
             if not success and error:
                 LOGGER.warning(
                     "Command %s failed for device %s: %s", msg_type, device_uuid, error
