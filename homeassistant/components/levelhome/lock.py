@@ -175,6 +175,14 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
         if self._lock_id not in self.coordinator.data:
             return
         current_state = self._device.state
+        if current_state and self._previous_state and current_state.lower() != self._previous_state.lower():
+            logbook.async_log_entry(
+                self.hass,
+                name=self._device.name,
+                message=f"State changed to {current_state}",
+                domain=DOMAIN,
+                entity_id=self.entity_id,
+            )
         self._previous_state = current_state
 
     def _set_optimistic_state(self, state: str) -> None:
