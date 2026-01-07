@@ -6,6 +6,7 @@ from dataclasses import replace
 import logging
 from typing import Any
 
+from homeassistant.components import logbook, persistent_notification
 from homeassistant.components.lock import LockEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -111,9 +112,25 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
             # Send command - actual state will come back via WebSocket push
             await self.coordinator.async_send_command(self._lock_id, "lock")
             # Note: We do NOT update to "locked" here - wait for WebSocket confirmation
-        except Exception:
+        except Exception as err:
             # Revert optimistic state on failure
             await self.coordinator.async_request_refresh()
+            device_name = self._device.name
+            error_msg = f"Failed to lock {device_name}: {err}"
+            _LOGGER.error(error_msg)
+            logbook.async_log_entry(
+                self.hass,
+                name=device_name,
+                message=f"Lock command failed: {err}",
+                domain=DOMAIN,
+                entity_id=self.entity_id,
+            )
+            persistent_notification.async_create(
+                self.hass,
+                message=f"Failed to lock **{device_name}**: {err}",
+                title="Lock command failed",
+                notification_id=f"{DOMAIN}_{self._lock_id}_lock_error",
+            )
             raise
 
     async def async_unlock(self, **kwargs: Any) -> None:
@@ -132,9 +149,25 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
             # Send command - actual state will come back via WebSocket push
             await self.coordinator.async_send_command(self._lock_id, "unlock")
             # Note: We do NOT update to "unlocked" here - wait for WebSocket confirmation
-        except Exception:
+        except Exception as err:
             # Revert optimistic state on failure
             await self.coordinator.async_request_refresh()
+            device_name = self._device.name
+            error_msg = f"Failed to unlock {device_name}: {err}"
+            _LOGGER.error(error_msg)
+            logbook.async_log_entry(
+                self.hass,
+                name=device_name,
+                message=f"Unlock command failed: {err}",
+                domain=DOMAIN,
+                entity_id=self.entity_id,
+            )
+            persistent_notification.async_create(
+                self.hass,
+                message=f"Failed to unlock **{device_name}**: {err}",
+                title="Lock command failed",
+                notification_id=f"{DOMAIN}_{self._lock_id}_unlock_error",
+            )
             raise
 
     def _set_optimistic_state(self, state: str) -> None:
