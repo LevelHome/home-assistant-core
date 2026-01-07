@@ -100,9 +100,7 @@ class OAuth2FlowHandler(
                 ),
             )
 
-        self._partner_base_url = user_input.get(
-            CONF_PARTNER_BASE_URL, default_partner
-        ).rstrip("/")
+        self._partner_base_url = DEFAULT_PARTNER_BASE_URL.rstrip("/")
 
         contact_info = user_input[CONF_CONTACT_INFO]
         self._delivery_method, self._contact_info = self._detect_contact_type(contact_info)
