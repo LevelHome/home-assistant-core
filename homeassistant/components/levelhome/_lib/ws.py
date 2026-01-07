@@ -249,13 +249,6 @@ class LevelWebsocketManager:
                 LOGGER.warning(
                     "Command %s failed for device %s: %s", msg_type, device_uuid, error
                 )
-                return
-            if success and device_uuid:
-                is_locked = msg_type == "lock_reply"
-                state = "locked" if is_locked else "unlocked"
-                state_payload = {"state": state, "device_uuid": device_uuid}
-                LOGGER.info("Updating state for device %s to %s", device_uuid, state)
-                await self._on_state_update(device_uuid, is_locked, state_payload)
             return
         if msg_type == "pong":
             return
