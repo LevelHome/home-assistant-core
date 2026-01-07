@@ -97,43 +97,43 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
 
     async def async_lock(self, **kwargs: Any) -> None:
         """Lock the lock."""
-        # Prevent command if already in a transitional state
+        if self.coordinator.is_command_in_progress(self._lock_id):
+            _LOGGER.debug(
+                "Command already in progress for lock %s, ignoring lock command",
+                self._lock_id,
+            )
+            return
         if self.is_locking or self.is_unlocking:
             _LOGGER.debug(
                 "Lock %s is already in transitional state, ignoring lock command",
                 self._lock_id,
             )
             return
-
-        # Optimistically set transitional state immediately for UI responsiveness
         self._set_optimistic_state("locking")
         try:
-            # Send command - actual state will come back via WebSocket push
             await self.coordinator.async_send_command(self._lock_id, "lock")
-            # Note: We do NOT update to "locked" here - wait for WebSocket confirmation
         except Exception:
-            # Revert optimistic state on failure
             await self.coordinator.async_request_refresh()
             raise
 
     async def async_unlock(self, **kwargs: Any) -> None:
         """Unlock the lock."""
-        # Prevent command if already in a transitional state
+        if self.coordinator.is_command_in_progress(self._lock_id):
+            _LOGGER.debug(
+                "Command already in progress for lock %s, ignoring unlock command",
+                self._lock_id,
+            )
+            return
         if self.is_locking or self.is_unlocking:
             _LOGGER.debug(
                 "Lock %s is already in transitional state, ignoring unlock command",
                 self._lock_id,
             )
             return
-
-        # Optimistically set transitional state immediately for UI responsiveness
         self._set_optimistic_state("unlocking")
         try:
-            # Send command - actual state will come back via WebSocket push
             await self.coordinator.async_send_command(self._lock_id, "unlock")
-            # Note: We do NOT update to "unlocked" here - wait for WebSocket confirmation
         except Exception:
-            # Revert optimistic state on failure
             await self.coordinator.async_request_refresh()
             raise
 

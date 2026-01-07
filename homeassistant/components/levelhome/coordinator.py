@@ -89,6 +89,7 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
         self._ws_manager = ws_manager
         self._client = _ClientAdapter(ws_manager)
         self._last_command_time: dict[str, float] = {}
+        self._command_in_progress: dict[str, bool] = {}
 
     async def _async_update_data(self) -> dict[str, LevelLockDevice]:
         try:
@@ -109,6 +110,9 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
     ) -> None:
         """Handle a push state update from the WebSocket."""
         is_command_reply = payload is not None and "bolt_state" not in payload and "device_name" not in payload
+        if is_command_reply:
+            self._command_in_progress[lock_id] = False
+            LOGGER.debug("Command reply received for %s, clearing command lock", lock_id)
         last_cmd_time = self._last_command_time.get(lock_id, 0)
         time_since_command = time.monotonic() - last_cmd_time
         if not is_command_reply and time_since_command < COMMAND_IGNORE_WINDOW:
@@ -156,9 +160,17 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
             LOGGER.info("Updated device %s: is_locked=%s, state=%s", updated_device.lock_id, updated_device.is_locked, updated_device.state)
             self.async_set_updated_data(current)
 
+    def is_command_in_progress(self, lock_id: str) -> bool:
+        """Check if a command is currently in progress for a lock."""
+        return self._command_in_progress.get(lock_id, False)
+
     async def async_send_command(self, lock_id: str, command: str) -> None:
         """Send a command via WebSocket."""
         if command in ("lock", "unlock"):
+            if self._command_in_progress.get(lock_id, False):
+                LOGGER.debug("Command already in progress for %s, ignoring new command", lock_id)
+                raise UpdateFailed(f"Command already in progress for {lock_id}")
+            self._command_in_progress[lock_id] = True
             self._last_command_time[lock_id] = time.monotonic()
             try:
                 await self._ws_manager.async_send_command(
@@ -166,4 +178,5 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
                     command,  # type: ignore[arg-type]
                 )
             except Exception as err:
+                self._command_in_progress[lock_id] = False
                 raise UpdateFailed(f"Command failed: {err}") from err
