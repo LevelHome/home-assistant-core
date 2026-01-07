@@ -50,7 +50,7 @@ class LevelLockEntity(CoordinatorEntity[LevelLocksCoordinator], LockEntity):
         self._lock_id = lock_id
         device = self._device
         self._attr_unique_id = f"{DOMAIN}_{lock_id}"
-        self._attr_name = device.name
+        self._attr_name = None
 
     @property
     def _device(self) -> LevelLockDevice:
