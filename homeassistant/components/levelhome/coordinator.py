@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import timedelta
 import logging
+import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -15,6 +16,7 @@ from ._lib.level_ha import WebsocketManager as LevelWebsocketManager
 
 LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL: timedelta | None = None  # Use push updates; no periodic polling
+COMMAND_IGNORE_WINDOW = 2.0  # Seconds to ignore push updates after sending a command
 
 
 @dataclass(slots=True)
@@ -86,6 +88,7 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
         )
         self._ws_manager = ws_manager
         self._client = _ClientAdapter(ws_manager)
+        self._last_command_time: dict[str, float] = {}
 
     async def _async_update_data(self) -> dict[str, LevelLockDevice]:
         try:
@@ -105,6 +108,17 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
         self, lock_id: str, is_locked: bool | None, payload: dict[str, Any] | None
     ) -> None:
         """Handle a push state update from the WebSocket."""
+        is_command_reply = payload is not None and "bolt_state" not in payload and "device_name" not in payload
+        last_cmd_time = self._last_command_time.get(lock_id, 0)
+        time_since_command = time.monotonic() - last_cmd_time
+        if not is_command_reply and time_since_command < COMMAND_IGNORE_WINDOW:
+            LOGGER.debug(
+                "Ignoring stale push update for %s (%.1fs since command, within %.1fs window)",
+                lock_id,
+                time_since_command,
+                COMMAND_IGNORE_WINDOW,
+            )
+            return
         current = dict(self.data or {})
         device = current.get(lock_id)
         if device is None:
@@ -145,6 +159,7 @@ class LevelLocksCoordinator(DataUpdateCoordinator[dict[str, LevelLockDevice]]):
     async def async_send_command(self, lock_id: str, command: str) -> None:
         """Send a command via WebSocket."""
         if command in ("lock", "unlock"):
+            self._last_command_time[lock_id] = time.monotonic()
             try:
                 await self._ws_manager.async_send_command(
                     lock_id,
